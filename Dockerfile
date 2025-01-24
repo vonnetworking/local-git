@@ -23,4 +23,12 @@ RUN lighty-enable-mod cgi && \
     chmod 444 /home/git/conf/lighttpd.conf && \
     chmod 754 /home/git/scripts/repo_maker.sh
 
+ENV REPO_DIR=/home/git/scm
+ENV REPO_NAME_LENGTH=6
+ENV REPO_PASS_LENGTH=8
+ENV HTTP_CONFIG_FILE=/home/git/conf/lighttpd.conf
+ENV PROTECT=false
+ENV RESPONSE_FORMAT=text
+ENV REPO_URL_BASE=""
+
 CMD ["/usr/sbin/lighttpd", "-f", "/home/git/conf/lighttpd.conf", "-D"]

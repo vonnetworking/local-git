@@ -4,7 +4,9 @@ REPO_DIR=${REPO_DIR:-/home/git/scm}
 REPO_NAME_LENGTH=${REPO_NAME_LENGTH:-6}
 REPO_PASS_LENGTH=${REPO_PASS_LENGTH:-12}
 HTTP_CONFIG_FILE=${HTTP_CONFIG_FILE:-/home/git/conf/lighttpd.conf}
-PROTECT="false"
+PROTECT=${PROTECT:-false}
+REPO_URL_BASE=${REPO_URL_BASE:-http://127.0.0.1:8888/scm}
+RESPONSE_FORMAT=${RESPONSE_FORMAT:-html}
 
 function generate_rand_str () {
     chars='abcdefghijklmnopqrstuvwxyz'
@@ -31,6 +33,23 @@ EOF
 
 }
 
+function render_text_response {
+    echo ""
+    echo "Created Repo: ${REPO_URL_BASE}/scm/${REPO_NAME}"
+    echo "Repo Creds:"
+    echo "$(cat /home/git/conf/${REPO_NAME}-user-info)"
+}
+
+function render_html_response {
+     echo ""
+    echo "<html><body>"
+    echo "<div>"
+    echo "<span> Created Repo: ${REPO_URL_BASE}/scm/${REPO_NAME} </span>"
+    echo "<span> Repo Creds: </span>"
+    echo "<span> $(cat /home/git/conf/${REPO_NAME}-user-info) </span>"
+    echo "</div>"
+    echo "</body></html>"
+}
 for param in $(echo "$QUERY_STRING" | tr '&' '\n'); do
     key=$(echo "$param" | cut -d'=' -f1)
     if [[ "${key}" == "protect" ]]; then
@@ -39,6 +58,8 @@ for param in $(echo "$QUERY_STRING" | tr '&' '\n'); do
         REPO_USERS=$(echo "$param" | cut -d'=' -f2 | tr '+' ' ')
     elif [[ "${key}" == "name" ]]; then
         REPO_NAME=$(echo "$param" | cut -d'=' -f2 | tr '+' ' ')
+    elif [[ "${key}" == "response_format" ]]; then
+        RESPONSE_FORMAT=$(echo "$param" | cut -d'=' -f2 | tr '+' ' ')
     fi
 done
 
@@ -49,6 +70,11 @@ REPO_USERS=${REPO_USERS:-1}
 
 if test -d ${REPO_DIR}/${REPO_NAME}; then
   echo "Repo already Exists!  overwrites are not allowed"
+  if [[ "${RESPONSE_FORMAT}" == "text" ]]; then
+        render_text_response
+    else
+        render_html_response
+    fi
 else
 
     git init ${REPO_NAME}
@@ -64,15 +90,12 @@ else
         done
     fi
 
-
     kill -USR1 $(ps -ef | grep lighttpd | grep -v grep | awk '{print $2}')
-
-    echo ""
-    echo "<html><body>"
-    echo "<div>"
-    echo "<span> Created Repo: ${REPO_NAME} </span>"
-    echo "<span> Repo Creds: </span>"
-    echo "<span> $(cat /home/git/conf/${REPO_NAME}-user-info) </span>"
-    echo "</div>"
-    echo "</body></html>"
+    
+    sleep 1
+    if [[ "${RESPONSE_FORMAT}" == "text" ]]; then
+        render_text_response
+    else
+        render_html_response
+    fi
 fi
