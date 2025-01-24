@@ -77,8 +77,11 @@ if test -d ${REPO_DIR}/${REPO_NAME}; then
     fi
 else
 
-    git init ${REPO_NAME}
-
+    git init --bare ${REPO_NAME}
+    cd ${REPO_NAME}
+    printf "[http]\n  receivepack = true" > .git/config
+    git config --bool core.bare true
+    
     if [[ "${PROTECT}" == "true" ]]; then
         add_config_snippet ${REPO_NAME}
         echo "" > /home/git/conf/${REPO_NAME}-user-info
