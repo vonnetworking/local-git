@@ -5,7 +5,7 @@ REPO_NAME_LENGTH=${REPO_NAME_LENGTH:-6}
 REPO_PASS_LENGTH=${REPO_PASS_LENGTH:-12}
 HTTP_CONFIG_FILE=${HTTP_CONFIG_FILE:-/home/git/conf/lighttpd.conf}
 PROTECT=${PROTECT:-false}
-REPO_URL_BASE=${REPO_URL_BASE:-http://127.0.0.1:8888/scm}
+SITE_URL=${SITE_URL:-http://127.0.0.1:8888/scm}
 RESPONSE_FORMAT=${RESPONSE_FORMAT:-html}
 
 function generate_rand_str () {
@@ -35,25 +35,37 @@ EOF
 
 function render_text_response {
     echo ""
-    echo "Created Repo: ${REPO_URL_BASE}/scm/${REPO_NAME}"
+    echo "Created Repo: ${SITE_URL}/scm/${REPO_NAME}"
     echo "Repo Creds:"
     echo "$(cat /home/git/conf/${REPO_NAME}-user-info)"
+}
+
+function render_json_response {
+    echo "{"
+    echo "\"repo_url\": \"${SITE_URL}/scm/${REPO_NAME}\","
+    echo "\"creds\": ["
+    for CRED in `cat /home/git/conf/${REPO_NAME}-user-info`; do
+        echo "\"${CRED}\""
+    done
+    echo "]"
+    echo "}"
 }
 
 function render_html_response {
      echo ""
     echo "<html><body>"
     echo "<div>"
-    echo "<span> Created Repo: ${REPO_URL_BASE}/scm/${REPO_NAME} </span>"
+    echo "<span> Created Repo: ${SITE_URL}/scm/${REPO_NAME} </span>"
     echo "<span> Repo Creds: </span>"
     echo "<span> $(cat /home/git/conf/${REPO_NAME}-user-info) </span>"
     echo "</div>"
     echo "</body></html>"
 }
+
 for param in $(echo "$QUERY_STRING" | tr '&' '\n'); do
     key=$(echo "$param" | cut -d'=' -f1)
     if [[ "${key}" == "protect" ]]; then
-        PROTECT=true
+        PROTECT=$(echo "$param" | cut -d'=' -f2 | tr '+' ' ')
     elif [[ "${key}" == "users" ]]; then
         REPO_USERS=$(echo "$param" | cut -d'=' -f2 | tr '+' ' ')
     elif [[ "${key}" == "name" ]]; then
@@ -71,23 +83,28 @@ REPO_USERS=${REPO_USERS:-1}
 if test -d ${REPO_DIR}/${REPO_NAME}; then
   echo "Repo already Exists!  overwrites are not allowed"
   if [[ "${RESPONSE_FORMAT}" == "text" ]]; then
-        render_text_response
-    else
-        render_html_response
-    fi
+    render_text_response
+  elif [[ "${RESPONSE_FORMAT}" == "json" ]]; then
+    render_json_response
+  else
+    render_html_response
+  fi
 else
 
-    git init --bare ${REPO_NAME}
+    git init --bare ${REPO_NAME} > /dev/null
+    chmod 777 ${REPO_NAME}
     cd ${REPO_NAME}
-    printf "[http]\n  receivepack = true" > .git/config
+    git symbolic-ref HEAD refs/heads/main
+    printf "[http]\n  receivepack = true" >> config
     git config --bool core.bare true
+    git config --global --add safe.directory ${REPO_DIR}/${REPO_NAME}
     
     if [[ "${PROTECT}" == "true" ]]; then
         add_config_snippet ${REPO_NAME}
         echo "" > /home/git/conf/${REPO_NAME}-user-info
         counter=0
         while [ $counter -lt ${REPO_USERS} ]; do 
-            REPO_PASS=$(generate_rand_str 8)
+            REPO_PASS=$(generate_rand_str ${REPO_PASS_LENGTH})
             echo "git_user${counter}:${REPO_PASS}" >> /home/git/conf/${REPO_NAME}-user-info
             ((counter++))
         done
@@ -97,8 +114,10 @@ else
     
     sleep 1
     if [[ "${RESPONSE_FORMAT}" == "text" ]]; then
-        render_text_response
+      render_text_response
+    elif [[ "${RESPONSE_FORMAT}" == "json" ]]; then
+      render_json_response
     else
-        render_html_response
+      render_html_response
     fi
 fi

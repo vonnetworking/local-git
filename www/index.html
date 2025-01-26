@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Temporary GIT Repo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        #content {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            background-color: #f9f9f9;
+            min-height: 100px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Create Temporary GIT Repo</h1>
+    <label for="protectCheckbox">Make Private</label>
+    <input type="checkbox" id="protectCheckbox" name="protectCheckbox">
+    <button id="createButton">Create</button>
+    <div id="content"></div>
+
+    <script> 
+        document.getElementById("createButton").addEventListener("click", function() {
+            var protectValue = document.getElementById('protectCheckbox');
+            var isProtected = protectValue.checked;
+            
+            const url = "{{ SITE_URL }}/create?response_format=json&protect=" + isProtected; 
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    // Here you can decide how to display the data
+                    console.log(data);
+                    document.getElementById("content").innerHTML = `
+                        <p>${data.repo_url}</p>
+                        <p>${data.creds.toString()}</p>
+                    `;
+                })
+                .catch(error => {
+                    document.getElementById("content").innerHTML = "Error fetching data!";
+                    console.error('Error:', error);
+                });
+        });
+    </script>
+
+</body>
+</html>
